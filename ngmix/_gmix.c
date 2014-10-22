@@ -756,7 +756,8 @@ static PyObject * PyGMix_render_jacob(PyObject* self, PyObject* args) {
 
                 for (colsub=0; colsub<nsub; colsub++) {
 
-                    tval += PYGMIX_GMIX_EVAL(gmix, n_gauss, u, v);
+                    //tval += PYGMIX_GMIX_EVAL(gmix, n_gauss, u, v);
+                    tval += PYGMIX_GMIX_EVAL(gmix, n_gauss, v, u);
 
                     u += ustepsize;
                     v += vstepsize;
@@ -830,7 +831,8 @@ static PyObject * PyGMix_get_loglike(PyObject* self, PyObject* args) {
             ivar=*( (double*)PyArray_GETPTR2(weight_obj,row,col) );
             if ( ivar > 0.0) {
                 data=*( (double*)PyArray_GETPTR2(image_obj,row,col) );
-                model_val=PYGMIX_GMIX_EVAL(gmix, n_gauss, u, v);
+                //model_val=PYGMIX_GMIX_EVAL(gmix, n_gauss, u, v);
+                model_val=PYGMIX_GMIX_EVAL(gmix, n_gauss, v, u);
 
                 diff = model_val-data;
                 loglike += diff*diff*ivar;
@@ -916,7 +918,8 @@ static PyObject * PyGMix_get_loglike_sub(PyObject* self, PyObject* args) {
 
                     for (colsub=0; colsub<nsub; colsub++) {
 
-                        model_val += PYGMIX_GMIX_EVAL(gmix, n_gauss, u, v);
+                        //model_val += PYGMIX_GMIX_EVAL(gmix, n_gauss, u, v);
+                        model_val += PYGMIX_GMIX_EVAL(gmix, n_gauss, v, u);
 
                         u += ustepsize;
                         v += vstepsize;
@@ -1008,7 +1011,8 @@ static PyObject * PyGMix_get_loglike_robust(PyObject* self, PyObject* args) {
             ivar=*( (double*)PyArray_GETPTR2(weight_obj,row,col) );
             if ( ivar > 0.0) {
                 data=*( (double*)PyArray_GETPTR2(image_obj,row,col) );
-                model_val=PYGMIX_GMIX_EVAL(gmix, n_gauss, u, v);
+                //model_val=PYGMIX_GMIX_EVAL(gmix, n_gauss, u, v);
+                model_val=PYGMIX_GMIX_EVAL(gmix, n_gauss, v, u);
 
                 diff = model_val-data;
                 loglike += logfactor + nupow*log(1.0+diff*diff*ivar/nu);
@@ -1089,7 +1093,8 @@ static PyObject * PyGMix_fill_fdiff(PyObject* self, PyObject* args) {
                 ierr=sqrt(ivar);
 
                 data=*( (double*)PyArray_GETPTR2(image_obj,row,col) );
-                model_val=PYGMIX_GMIX_EVAL(gmix, n_gauss, u, v);
+                //model_val=PYGMIX_GMIX_EVAL(gmix, n_gauss, u, v);
+                model_val=PYGMIX_GMIX_EVAL(gmix, n_gauss, v, u);
 
                 (*fdiff_ptr) = (model_val-data)*ierr;
                 s2n_numer += data*model_val*ivar;
@@ -1190,7 +1195,8 @@ static PyObject * PyGMix_fill_fdiff_sub(PyObject* self, PyObject* args) {
 
                     for (colsub=0; colsub<nsub; colsub++) {
 
-                        model_val += PYGMIX_GMIX_EVAL(gmix, n_gauss, u, v);
+                        //model_val += PYGMIX_GMIX_EVAL(gmix, n_gauss, u, v);
+                        model_val += PYGMIX_GMIX_EVAL(gmix, n_gauss, v, u);
 
                         u += ustepsize;
                         v += vstepsize;
@@ -1357,8 +1363,10 @@ static int em_run(PyObject* image_obj,
                     struct PyGMix_EM_Sums *sum=&sums[i];
                     const struct PyGMix_Gauss2D *gauss=&gmix[i];
 
-                    double udiff = u-gauss->row;
-                    double vdiff = v-gauss->col;
+                    //double udiff = u-gauss->row;
+                    //double vdiff = v-gauss->col;
+                    double udiff = u-gauss->col;
+                    double vdiff = v-gauss->row;
 
                     double u2 = udiff*udiff;
                     double v2 = vdiff*vdiff;
