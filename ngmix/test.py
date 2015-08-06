@@ -4036,17 +4036,10 @@ def test_fit_gauss1(model='gauss',
             tab=pdict['trials']
             #tab.show()
 
-            import images
-            #images.view(eu.stat.cov2cor(res['pars_cov']))
             psf_pars=psf_gmix_meas.get_full_pars()
 
             m,c=stats.calc_mcmc_stats(trials, weights=iweights)
-            print()
-            print_pars(m,front="means:")
-            images.imprint(eu.stat.cov2cor(c))
-            print()
-            mvl=priors.MVNMom(m,c,
-                              psf_pars[3:])
+            mvl=priors.MVNMom(m,c, psf_pars[3:])
 
             rvals=mvl.sample(nrand)
 
