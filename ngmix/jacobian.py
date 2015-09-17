@@ -43,7 +43,7 @@ class Jacobian(object):
         """
         Get the center of the coordinate system
         """
-        return copy.deepcopy(self._data['row0']), copy.deepcopy(self._data['col0'])
+        return copy.deepcopy(self._data['row0'][0]), copy.deepcopy(self._data['col0'][0])
 
     def get_dudrow(self):
         """
@@ -79,8 +79,8 @@ class Jacobian(object):
         """
         reset the center
         """
-        self._data['row0'] = row0
-        self._data['col0'] = col0
+        self._data['row0'][0] = row0
+        self._data['col0'][0] = col0
 
     def get_det(self):
         """
