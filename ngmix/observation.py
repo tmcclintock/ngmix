@@ -73,7 +73,7 @@ class Observation(object):
 
         self.weight=weight
 
-    def set_jacobian(self, jacobian):
+    def set_jacobian(self, jacobian_in):
         """
         Set the jacobian.
 
@@ -81,9 +81,13 @@ class Observation(object):
         ----------
         jacobian: Jacobian (or None)
         """
-        if jacobian is None:
+        if jacobian_in is None:
             jacobian=UnitJacobian(0.0, 0.0)
-        assert isinstance(jacobian,Jacobian),"jacobian must be of type Jacobian"
+        else:
+            mess="jacobian must be of type Jacobian"
+            assert isinstance(jacobian_in,Jacobian),mess
+            jacobian=jacobian_in.copy()
+
         self.jacobian=jacobian
 
     def get_jacobian(self):
