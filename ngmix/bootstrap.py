@@ -7,7 +7,7 @@ TODO
 
 """
 from __future__ import print_function
-
+from copy import deepcopy
 from pprint import pprint
 import numpy
 from numpy import where, array, sqrt, exp, log, linspace, zeros
@@ -19,6 +19,7 @@ from .fitting import print_pars
 from .gmix import GMix, GMixModel, GMixCM, get_coellip_npars
 from .em import GMixEM, prep_image
 from .observation import Observation, ObsList, MultiBandObsList, get_mb_obs
+from .jacobian import Jacobian
 from .priors import srandu
 from .shape import get_round_factor
 from .guessers import TFluxGuesser, TFluxAndPriorGuesser, ParsGuesser, RoundParsGuesser
@@ -111,6 +112,13 @@ class Bootstrapper(object):
             raise RuntimeError("you need to run fit_metacal_max first")
         return self.metacal_max_res
 
+    def get_metanoise_max_result(self):
+        """
+        get result of metanoise with a max likelihood fitter
+        """
+        if not hasattr(self, 'metanoise_max_res'):
+            raise RuntimeError("you need to run fit_metanoise_max first")
+        return self.metanoise_max_res
 
     def get_round_result(self):
         """
@@ -494,7 +502,8 @@ class Bootstrapper(object):
         return pars, pars_lin
 
 
-    def _find_cen(self, ntry=10):
+
+    def _find_cen(self, ntry=10, obs=None):
         """
         run a single-gaussian em fit, just to find the center
 
@@ -503,10 +512,13 @@ class Bootstrapper(object):
         If it fails, don't modify anything
         """
 
-        if len(self.mb_obs_list) > 1 or len(self.mb_obs_list[0]) > 1:
-            raise RuntimeError("adapt to multiple observations")
+        if obs is None:
+            if len(self.mb_obs_list) > 1 or len(self.mb_obs_list[0]) > 1:
+                raise RuntimeError("adapt to multiple observations")
+            obs_orig = self.mb_obs_list[0][0]
+        else:
+            obs_orig=obs
 
-        obs_orig = self.mb_obs_list[0][0]
         jacob=obs_orig.jacobian
 
         row0,col0=jacob.get_cen()
@@ -743,6 +755,8 @@ class Bootstrapper(object):
         metacal_pars=mpars
 
         oobs = self.mb_obs_list[0][0]
+        print("finding cen")
+        self._find_cen(obs=oobs)
 
         if target_noise is not None:
             extra_noise = self._get_extra_noise_from_target(oobs, target_noise)
@@ -839,8 +853,7 @@ class Bootstrapper(object):
         fits = self._do_metacal_fits(obs_dict,
                                      psf_model, gal_model, max_pars, psf_Tguess,
                                      prior, psf_ntry, ntry,
-                                     psf_fit_pars,
-                                     extra_noise)
+                                     psf_fit_pars)
 
         pars=fits['pars']
         pars_mean = (pars['1p']+
@@ -893,8 +906,7 @@ class Bootstrapper(object):
 
     def _do_metacal_fits(self, obs_dict, psf_model, gal_model, pars, 
                          psf_Tguess, prior, psf_ntry, ntry, 
-                         psf_fit_pars,
-                         extra_noise):
+                         psf_fit_pars):
 
         bdict={}
         for key in obs_dict:
@@ -1033,7 +1045,7 @@ class Bootstrapper(object):
 
         new_obs = Observation(new_im,
                               weight=new_weight,
-                              jacobian=obs.jacobian)
+                              jacobian=obs.jacobian.copy())
         if obs.has_psf():
             new_obs.set_psf(obs.psf)
 
@@ -1062,6 +1074,102 @@ class Bootstrapper(object):
             new_weight[w] = 1.0/(1.0/new_weight[w] + noise**2)
 
         return new_weight
+
+
+
+
+    def fit_metanoise_max(self,
+                          psf_model,
+                          gal_model,
+                          pars,
+                          psf_Tguess,
+                          nrand,
+                          psf_fit_pars=None,
+                          metacal_pars=None,
+                          prior=None,
+                          psf_ntry=10,
+                          ntry=1):
+        """
+        run metanoise
+        """
+
+        if len(self.mb_obs_list) > 1 or len(self.mb_obs_list[0]) > 1:
+            raise NotImplementedError("only a single obs for now")
+
+        mpars={'step':0.01}
+        if metacal_pars is not None:
+            mpars.update(metacal_pars)
+
+        metacal_pars=mpars
+
+        oobs = self.mb_obs_list[0][0]
+        oobs_rot = get_rot90_obs(oobs)
+
+        print("finding cen")
+        self._find_cen(obs=oobs)
+        print("finding cen rot")
+        self._find_cen(obs=oobs_rot)
+
+        obs_dict_orig = self.get_metacal_obsdict(oobs, metacal_pars)
+        obs_dict_orig_rot = self.get_metacal_obsdict(oobs_rot, metacal_pars)
+
+        # want final measurement to have same s/n
+        w=where(oobs.weight > 0)
+        noise = median( sqrt( 1.0/oobs.weight[w] ) )
+        target_noise = noise*sqrt(nrand)
+        extra_noise = sqrt(target_noise**2 - noise**2)
+
+        reslist=[]
+
+        for i in [1,2]: 
+            if i==1:
+                odict = obs_dict_orig
+            else:
+                odict = obs_dict_orig_rot
+
+            mn_obs_dict={}
+            for key in obs_dict_orig:
+                mn_obs_dict[key] = ObsList()
+
+            for i in xrange(nrand):
+                if (i % 2) == 0:
+                       tobs_dict = self._add_noise_to_metacal_obsdict(odict, extra_noise)
+
+                if False:
+                    import images
+                    images.multiview(tobs_dict['1p'].psf.image)
+                    key=raw_input("hit a key (q to quit): ")
+                    if key=='q':
+                        stop
+
+                for key in mn_obs_dict:
+                    mn_obs_dict[key].append( tobs_dict[key] )
+
+
+
+
+            tres = self._fit_metacal_max_one(metacal_pars,
+                                             mn_obs_dict,
+                                             psf_model, gal_model, pars, psf_Tguess,
+                                             prior, psf_ntry, ntry,
+                                             psf_fit_pars,
+                                             extra_noise)
+
+            res={}
+            for key in tres:
+                nkey = key.replace('mcal_','mnoise_')
+                res[nkey] = tres[key]
+
+            reslist.append(res)
+            
+
+        res={}
+        res1,res2=reslist
+        for key in res1:
+            res[key] = 0.5*(res1[key] + res2[key])
+
+        self.metanoise_max_res = res
+
 
 
     def fit_max_fixT(self, gal_model, pars, T,
@@ -1331,6 +1439,46 @@ class Bootstrapper(object):
         if res['flags'] != 0:
             print("        cov replacement failed")
             res['flags']=0
+
+def get_rot90_obs(obsin):
+    obsrot = deepcopy(obsin)
+
+
+    # rotated images. Force c contiguous with copy
+    new_image = numpy.rot90(obsrot.image)
+    new_image=new_image.astype('f8')
+    obsrot.image = new_image
+
+    new_weight = numpy.rot90(obsrot.weight)
+    new_weight= new_weight.astype('f8')
+    obsrot.weight = new_weight
+
+    # rotated jacobians
+    jacob_rot = get_rot90_jacob(obsrot.jacobian, new_image)
+    obsrot.set_jacobian(jacob_rot)
+
+
+    if obsrot.has_psf():
+        psf_rot = get_rot90_obs(obsrot.get_psf())
+        obsrot.set_psf(psf_rot)
+
+    return obsrot
+
+def get_rot90_jacob(jacob_in, imrot):
+    # need to do the matrix too
+    nrow_rot, ncol_rot = imrot.shape
+
+    row_orig,col_orig = jacob_in.get_cen()
+    row_rot = deepcopy(col_orig)
+    col_rot = ncol_rot-row_orig-1
+
+    print("rot:",row_rot, col_rot)
+
+    jacob=jacob_in.copy()
+    jacob.set_cen(row_rot, col_rot)
+
+    return jacob
+
 
 class BootstrapperGaussMom(Bootstrapper):
     def __init__(self, obs):
@@ -1791,7 +1939,8 @@ class PSFRunner(object):
 
         for i in xrange(ntry):
             guess=self.get_guess()
-            fitter=LMSimple(self.obs,self.model,lm_pars=self.lm_pars,npoints=npoints)
+            fitter=LMSimple(self.obs,self.model,lm_pars=self.lm_pars,
+                            npoints=npoints)
             fitter.go(guess)
 
             res=fitter.get_result()
