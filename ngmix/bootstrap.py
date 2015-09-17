@@ -1135,17 +1135,8 @@ class Bootstrapper(object):
                 if (i % 2) == 0:
                        tobs_dict = self._add_noise_to_metacal_obsdict(odict, extra_noise)
 
-                if False:
-                    import images
-                    images.multiview(tobs_dict['1p'].psf.image)
-                    key=raw_input("hit a key (q to quit): ")
-                    if key=='q':
-                        stop
-
                 for key in mn_obs_dict:
                     mn_obs_dict[key].append( tobs_dict[key] )
-
-
 
 
             tres = self._fit_metacal_max_one(metacal_pars,
