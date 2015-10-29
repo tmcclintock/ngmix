@@ -633,8 +633,8 @@ def test():
             else:
                 obs_mcal = m.get_obs_psfshear(shear)
 
-            s, us, tpsf = mchuff.metaCalibrate(galsim.Image(obs.image, scale=1.0),
-                                               galsim.Image(obs.psf.image,scale=1.0),
+            s, us, tpsf = mchuff.metaCalibrate(galsim.Image(obs.image.copy(), scale=1.0),
+                                               galsim.Image(obs.psf.image.copy(),scale=1.0),
                                                g1=shear.g1, g2=shear.g2,
                                                gal_shear=type=='gal')
  
