@@ -82,7 +82,7 @@ class Metacal(object):
         """
 
         newpsf, newpsf_interp = self.get_target_psf(shear, 'gal_shear')
-        sheared_image = self.get_target_image(newpsf_interp, shear=shear)
+        sheared_image = self.get_target_image(newpsf, shear=shear)
 
         newobs = self._make_obs(sheared_image, newpsf)
 
@@ -105,7 +105,7 @@ class Metacal(object):
         """
 
         newpsf, newpsf_interp = self.get_target_psf(shear, 'gal_shear')
-        unsheared_image = self.get_target_image(newpsf_interp, shear=None)
+        unsheared_image = self.get_target_image(newpsf, shear=None)
 
         uobs = self._make_obs(unsheared_image, newpsf)
 
@@ -121,7 +121,7 @@ class Metacal(object):
             The shear to apply
         """
         newpsf, newpsf_interp = self.get_target_psf(shear, 'psf_shear')
-        conv_image = self.get_target_image(newpsf_interp, shear=None)
+        conv_image = self.get_target_image(newpsf, shear=None)
 
         newobs = self._make_obs(conv_image, newpsf)
         return newobs
@@ -167,7 +167,7 @@ class Metacal(object):
 
         return psf_grown_image, psf_grown_interp
 
-    def get_target_image(self, psf_interp, shear=None):
+    def get_target_image(self, psf, shear=None):
         """
         get the target image, convolved with the specified psf
         and possibly sheared
@@ -189,6 +189,7 @@ class Metacal(object):
         else:
             shim_interp_nopsf = self.image_int_nopsf
 
+        psf_interp = galsim.InterpolatedImage(psf, x_interpolant=self.interp)
         imconv = galsim.Convolve([shim_interp_nopsf, psf_interp])
 
         # Draw reconvolved, sheared image to an ImageD object, and return.
@@ -607,7 +608,7 @@ def test():
     import images
     import fitsio
     import os
-    #import mchuff
+    import mchuff
     import galsim
 
     dir='./mcal-tests'
@@ -632,7 +633,6 @@ def test():
             else:
                 obs_mcal = m.get_obs_psfshear(shear)
 
-            '''
             s, us, tpsf = mchuff.metaCalibrate(galsim.Image(obs.image, scale=1.0),
                                                galsim.Image(obs.psf.image,scale=1.0),
                                                g1=shear.g1, g2=shear.g2,
@@ -640,7 +640,6 @@ def test():
  
             print("psf:",numpy.abs(tpsf.array - obs_mcal.psf.image).max()/obs_mcal.psf.image.max())
             print("im:",numpy.abs(s.array - obs_mcal.image).max()/obs_mcal.image.max())
-            '''
 
             images.compare_images(obs_sheared_dilated.image,
                                   obs_mcal.image,
