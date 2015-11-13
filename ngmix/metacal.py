@@ -82,7 +82,7 @@ class Metacal(object):
         """
 
         newpsf, newpsf_interp = self.get_target_psf(shear, 'gal_shear')
-        sheared_image = self.get_target_image(newpsf, shear=shear)
+        sheared_image = self.get_target_image(newpsf_interp, shear=shear)
 
         newobs = self._make_obs(sheared_image, newpsf)
 
@@ -105,7 +105,7 @@ class Metacal(object):
         """
 
         newpsf, newpsf_interp = self.get_target_psf(shear, 'gal_shear')
-        unsheared_image = self.get_target_image(newpsf, shear=None)
+        unsheared_image = self.get_target_image(newpsf_interp, shear=None)
 
         uobs = self._make_obs(unsheared_image, newpsf)
 
@@ -121,7 +121,7 @@ class Metacal(object):
             The shear to apply
         """
         newpsf, newpsf_interp = self.get_target_psf(shear, 'psf_shear')
-        conv_image = self.get_target_image(newpsf, shear=None)
+        conv_image = self.get_target_image(newpsf_interp, shear=None)
 
         newobs = self._make_obs(conv_image, newpsf)
         return newobs
@@ -167,7 +167,7 @@ class Metacal(object):
 
         return psf_grown_image, psf_grown_interp
 
-    def get_target_image(self, psf, shear=None):
+    def get_target_image(self, psf_interp, shear=None):
         """
         get the target image, convolved with the specified psf
         and possibly sheared
@@ -189,7 +189,7 @@ class Metacal(object):
         else:
             shim_interp_nopsf = self.image_int_nopsf
 
-        psf_interp = galsim.InterpolatedImage(psf, x_interpolant=self.interp)
+        #psf_interp = galsim.InterpolatedImage(psf, x_interpolant=self.interp)
         imconv = galsim.Convolve([shim_interp_nopsf, psf_interp])
 
         # Draw reconvolved, sheared image to an ImageD object, and return.
