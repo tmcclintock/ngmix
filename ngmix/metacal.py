@@ -73,7 +73,7 @@ def get_all_metacal(obs, step=0.01, **kw):
 
     return odict
 
-class Metacal(object):
+class MetacalTest(object):
     """
     Create manipulated images for use in metacalibration
 
@@ -770,6 +770,283 @@ class MetacalOld(object):
         self.interp = galsim.Lanczos(LANCZOS_PARS_DEFAULT['order'],
                                      LANCZOS_PARS_DEFAULT['conserve_dc'],
                                      LANCZOS_PARS_DEFAULT['tol'])
+
+    def _make_obs(self, im, psf_im):
+        """
+        inputs are galsim objects
+        """
+
+        obs=self.obs
+
+        psf_obs = Observation(psf_im.array,
+                              weight=obs.psf.weight.copy(),
+                              jacobian=obs.psf.jacobian.copy())
+
+        newobs=Observation(im.array,
+                           jacobian=obs.jacobian.copy(),
+                           weight=obs.weight.copy(),
+                           psf=psf_obs)
+        return newobs
+
+class Metacal(object):
+    """
+    For Galsim 1.3
+    Create manipulated images for use in metacalibration
+
+    parameters
+    ----------
+    image: numpy array
+        2d array representing the image
+    psf_image: numpy array
+        2d array representing the psf image
+    jacobian: Jacobian, optional
+        An ngmix.Jacobian or None.  If None, an ngmix.UnitJacobian is
+        constructed
+
+    examples
+    --------
+
+    psf_obs=Observation(psf_image)
+    obs=Observation(image, psf=psf_obs)
+
+    mc=Metacal(obs)
+
+    # observations used to calculate R
+
+    sh1m=ngmix.Shape(-0.01,  0.00 )
+    sh1p=ngmix.Shape( 0.01,  0.00 )
+    sh2m=ngmix.Shape( 0.00, -0.01 )
+    sh2p=ngmix.Shape( 0.00,  0.01 )
+
+    R_obs1m = mc.get_obs_galshear(sh1m)
+    R_obs1p = mc.get_obs_galshear(sh1p)
+    R_obs2m = mc.get_obs_galshear(sh2m)
+    R_obs2p = mc.get_obs_galshear(sh2p)
+
+    # you can also get an unsheared, just convolved obs
+    R_obs1m, R_obs1m_unsheared = mc.get_obs_galshear(sh1p, get_unsheared=True)
+
+    # observations used to calculate Rpsf
+    Rpsf_obs1m = mc.get_obs_psfshear(sh1m)
+    Rpsf_obs1p = mc.get_obs_psfshear(sh1p)
+    Rpsf_obs2m = mc.get_obs_psfshear(sh2m)
+    Rpsf_obs2p = mc.get_obs_psfshear(sh2p)
+    """
+
+    def __init__(self, obs, **kw):
+
+        if not obs.has_psf():
+            raise ValueError("observation must have a psf observation set")
+
+        self.obs=obs
+        self.pixel_scale=1.0
+
+    def get_all(self, step, **kw):
+        """
+        Get all combinations of metacal images in a dict
+
+        parameters
+        ----------
+        step: float
+            The shear step value to use for metacal
+        types: list
+            Types to get.  Default is given in METACAL_TYPES
+
+        returns
+        -------
+        A dictionary with all the relevant metacaled images
+            dict keys:
+                1p -> ( shear, 0)
+                1m -> (-shear, 0)
+                2p -> ( 0, shear)
+                2m -> ( 0, -shear)
+            simular for 1p_psf etc.
+        """
+        types=kw.get('types',METACAL_TYPES)
+
+        shdict={}
+
+        # galshear keys
+        shdict['1m']=Shape(-step,  0.0)
+        shdict['1p']=Shape( step,  0.0)
+
+        shdict['2m']=Shape(0.0, -step)
+        shdict['2p']=Shape(0.0,  step)
+
+        # psfshear keys
+        keys=list(shdict.keys())
+        for key in keys:
+            pkey = '%s_psf' % key
+            shdict[pkey] = shdict[key].copy()
+
+        odict={}
+
+        for type in types:
+            sh=shdict[type]
+
+            if 'psf' in type:
+                obs = self.get_obs_psfshear(sh)
+            else:
+                obs = self.get_obs_galshear(sh)
+
+            odict[type] = obs
+
+        return odict
+
+
+    def get_obs_galshear(self, shear):
+        """
+        This is the case where we shear the image, for calculating R
+
+        parameters
+        ----------
+        shear: ngmix.Shape
+            The shear to apply
+
+        get_unsheared: bool
+            Get an observation only convolved by the target psf, not
+            sheared
+        """
+
+        type='gal_shear'
+
+        target_psf = self.get_target_psf(shear, type)
+        sheared_image = self.get_target_image(target_psf, shear=shear)
+
+        newobs = self._make_obs(sheared_image, target_psf)
+
+        return newobs
+
+    def get_obs_psfshear(self, shear):
+        """
+        This is the case where we shear the psf image, for calculating Rpsf
+
+        parameters
+        ----------
+        shear: ngmix.Shape
+            The shear to apply
+        """
+        target_psf = self.get_target_psf(shear, 'psf_shear')
+        conv_image = self.get_target_image(target_psf, shear=None)
+
+        newobs = self._make_obs(conv_image, target_psf)
+        return newobs
+
+
+    def get_target_psf(self, shear, type):
+        """
+        copied straight from Eric's code
+
+        get galsim object for the dilated, possibly sheared, psf
+
+        parameters
+        ----------
+        shear: ngmix.Shape
+            The applied shear
+        type: string
+            Type of psf target.  For type='gal_shear', the psf is just dilated to
+            deal with noise amplification.  For type='psf_shear' the psf is also
+            sheared for calculating Rpsf
+
+        returns
+        -------
+        galsim object
+        """
+
+        _check_shape(shear)
+
+        opsf=self.obs.psf.image
+        ogpsf = galsim.Image(opsf.copy(), scale=self.pixel_scale)
+
+        pixel = galsim.Pixel(self.pixel_scale)
+
+        # Create a GSObj from the psf image.
+        l5 = galsim.Lanczos(5, True, 1.0E-4)
+        l52d = galsim.InterpolantXY(l5)
+        psf = galsim.InterpolatedImage(ogpsf,
+                                       x_interpolant = l52d)
+
+        # Deconvolve the pixel from the PSF.
+        pixInv = galsim.Deconvolve(pixel)
+        psfNoPixel = galsim.Convolve([psf , pixInv])
+
+        # Increase the size of the PSF by 2*shear
+        psfGrownNoPixel = psfNoPixel.dilate(1 + 2*numpy.sqrt(shear.g1**2 + shear.g2**2))
+
+        # Convolve the grown psf with the pixel
+        psfGrown = galsim.Convolve(psfGrownNoPixel,pixel)
+
+        # I think it's actually the shear of the effective, PSF-convolved PSF that we're sensitive
+        # to. So I'm going to shear at this stage if gal_shear is False.
+        if type != 'gal_shear':
+            psfGrown = psfGrown.shear(g1=shear.g1, g2=shear.g2)
+
+        # Draw to an ImageD object, and then return.
+        # difference from Eric
+        psfGrownImage = galsim.ImageD(ogpsf.bounds)
+        #psfGrownImage = galsim.ImageD(opsf.shape[1],
+        #                              opsf.shape[0],
+        #                              scale=self.pixel_scale)
+        psfGrownImage=psfGrown.drawImage(image=psfGrownImage,
+                                         scale=self.pixel_scale,
+                                         method='no_pixel')
+        return psfGrownImage
+
+    def get_target_image(self, psf_obj, shear=None):
+        """
+        get the target image, convolved with the specified psf
+        and possibly sheared
+
+        parameters
+        ----------
+        psf_obj: A galsim object
+            psf object by which to convolve.  An interpolated image,
+            or surface brightness profile
+        shear: ngmix.Shape, optional
+            The shear to apply
+
+        returns
+        -------
+        galsim image object
+        """
+
+        opsf=self.obs.psf.image
+        ogpsf = galsim.Image(opsf.copy(), scale=self.pixel_scale)
+
+        oim = self.obs.image
+        ogim = galsim.Image(oim.copy(), scale=self.pixel_scale)
+
+        l5 = galsim.Lanczos(5, True, 1.0E-4)
+        l52d = galsim.InterpolantXY(l5)
+
+        galaxy = galsim.InterpolatedImage(ogim, x_interpolant = l52d)
+        psf = galsim.InterpolatedImage(ogpsf, x_interpolant = l52d)
+        psfTarget = galsim.InterpolatedImage(psf_obj, x_interpolant = l52d)
+
+        # Remove the psf from the galaxy
+        psfInv = galsim.Deconvolve(psf)
+        galaxy_noPSF = galsim.Convolve(galaxy,psfInv)
+
+        # Apply a shear
+        if shear is not None:
+            galaxy_noPSF = galaxy_noPSF.shear(g1 = shear.g1, g2 = shear.g2)
+
+        # Reconvolve to the target psf
+        galaxy_sheared_reconv = galsim.Convolve([galaxy_noPSF, psfTarget])
+
+        # Draw reconvolved, sheared image to an ImageD object, and return.
+        # difference from Eric
+        galaxyImageSheared = galsim.ImageD(ogim.bounds)
+        #galaxyImageSheared = galsim.ImageD(oim.shape[1],
+        #                                   oim.shape[0],
+        #                                   scale=self.pixel_scale)
+        galaxyImageSheared = galaxy_sheared_reconv.drawImage(image=galaxyImageSheared,
+                                                             method='no_pixel',
+                                                             scale=self.pixel_scale)
+
+
+        return galaxyImageSheared
+
 
     def _make_obs(self, im, psf_im):
         """
