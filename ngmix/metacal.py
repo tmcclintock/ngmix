@@ -336,22 +336,34 @@ class Metacal(object):
 
         return psf_grown_image, psf_grown
 
+    def _get_dilation(self, shear):
+        """
+        dilate to hide modes exposed by the shear
+
+        If prepix, also dilate to hide the modes
+        smaller than the pixel
+        """
+        g = sqrt(shear.g1**2 + shear.g2**2)
+        dilation = 1.0 + 2.0*g
+
+        if self.prepix:
+            dilation += 1.0/float(min(self.obs.psf.image.shape))
+        return dilation
+
     def _get_dilated_psf(self, shear, doshear=False):
         """
-        dilate the psf by the input shear and reconvolve by the pixel.  See
-        _do_dilate for the algorithm
-
+        dilate the psf by the input shear and reconvolve by the pixel.
         If doshear, also shear it
         """
-        psf_grown_nopix = _do_dilate(self.psf_int_nopix, shear)
+
+        dilation = self._get_dilation(shear)
+        psf_grown_nopix = self.psf_int_nopix.dilate(dilation)
+
+        #psf_grown_nopix = _do_dilate(self.psf_int_nopix, shear)
         if doshear:
-            #print("    shearing pre-pixel psf")
             psf_grown_nopix = psf_grown_nopix.shear(g1=shear.g1,
                                                     g2=shear.g2)
-        #else:
-        #    print("    not shearing psf")
         if self.prepix:
-            #print("using prepix")
             return psf_grown_nopix
         else:
             psf_grown_interp = galsim.Convolve(psf_grown_nopix,self.pixel)
