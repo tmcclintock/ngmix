@@ -2795,9 +2795,9 @@ static int em_run(PyObject* image_obj,
     double psky = sky/(counts/area);
 
     double T=0, T_last=-9999.0, igrat=0;
-    double 
-        e1=0, e2=0, e1_last=-9999, e2_last=-9999,
-        e1diff=0, e2diff=0;
+    double e1=0, e2=0;
+        // e1_last=-9999, e2_last=-9999;
+        // e1diff=0, e2diff=0;
 
     (*numiter)=0;
     while ( (*numiter) < maxiter) {
@@ -2899,14 +2899,18 @@ static int em_run(PyObject* image_obj,
         }
 
         (*frac_diff) = fabs((T-T_last)/T);
+
+        /* rev01 reverting to what we did before */
+        /*
         e1diff=fabs(e1-e1_last);
         e2diff=fabs(e2-e2_last);
+        */
 
-        /*
         if ( (*frac_diff) < tol) {
             break;
         }
-        */
+
+        /*
         if ( 
                   (*frac_diff < tol)
                && (e1diff < tol)
@@ -2916,9 +2920,11 @@ static int em_run(PyObject* image_obj,
             break;
         }
 
+        */
+
         T_last = T;
-        e1_last = e1;
-        e2_last = e2;
+        //e1_last = e1;
+        //e2_last = e2;
 
         (*numiter) += 1;
 
