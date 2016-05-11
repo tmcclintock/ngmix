@@ -145,6 +145,38 @@ static void gmix_get_cen(const struct PyGMix_Gauss2D *self,
     (*col) /= (*psum);
 }
 
+/* not using parallel axis theorem */
+static double gmix_get_T_nopaxis(const struct PyGMix_Gauss2D *gmix,
+                                 npy_intp n_gauss, int *status)
+{
+
+    double psum=0;
+    double T=0, irr_sum=0, icc_sum=0;
+    npy_intp i=0;
+
+    *status=1;
+
+    for (i=0; i<n_gauss; i++) {
+        struct PyGMix_Gauss2D *gauss=&gmix[i];
+
+        psum += gauss->p;
+
+        irr_sum += gauss->p*gauss->irr;
+        icc_sum += gauss->p*gauss->icc;
+
+    }
+
+    if (psum == 0) {
+        *status=0;
+        return -9999.0;
+    }
+
+    T = (irr_sum + icc_sum)/psum;
+
+    return T;
+}
+
+
 static int gmix_get_e1e2T(struct PyGMix_Gauss2D *gmix,
                           npy_intp n_gauss,
                           double *e1, double *e2, double *T)
@@ -2795,7 +2827,7 @@ static int em_run(PyObject* image_obj,
     double psky = sky/(counts/area);
 
     double T=0, T_last=-9999.0, igrat=0;
-    double e1=0, e2=0;
+    //double e1=0, e2=0;
         // e1_last=-9999, e2_last=-9999;
         // e1diff=0, e2diff=0;
 
@@ -2891,7 +2923,8 @@ static int em_run(PyObject* image_obj,
         psky = skysum;
         nsky = psky/area;
 
-        status=gmix_get_e1e2T(gmix, n_gauss, &e1, &e2, &T);
+        //status=gmix_get_e1e2T(gmix, n_gauss, &e1, &e2, &T);
+        T=gmix_get_T_nopaxis(gmix, n_gauss, &status);
         if (!status) {
             PyErr_Format(GMixRangeError, "em psum = 0");
             goto _em_run_bail;
