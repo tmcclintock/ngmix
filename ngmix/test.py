@@ -11,9 +11,72 @@ from .priors import srandu
 from . import joint_prior
 from .fitting import *
 from .gexceptions import *
-from .jacobian import Jacobian
+from .jacobian import Jacobian, UnitJacobian
 
 from . import stats
+
+from . import gmix
+
+def test_bde_creation():
+    import images
+
+    psf=gmix.GMixModel([0.0, 0.0, 0.0, 0.0, 4.0, 1.0], "gauss")
+
+    dims=[25,25]
+
+    cen1pix=(dims[0]-1.0)/2.0
+    cen2pix=(dims[1]-1.0)/2.0
+
+    jacob=UnitJacobian(row=cen1pix, col=cen2pix)
+
+    cen1=0.0
+    cen2=0.0
+
+    be1 = 0.1
+    be2 = 0.2
+    bT = 20.0
+    bF = 1.0
+
+    de1 = -0.05
+    de2 = 0.1
+    dT = 18.0
+    dF = 2.0
+
+    model="bde"
+    pars=[
+        cen1, cen2,
+
+        be1, be2, bT,
+
+        de1, de2, dT,
+
+        bF,
+        dF,
+    ]
+
+    gm0 = gmix.GMixModel(pars, model)
+    gm = gm0.convolve(psf)
+
+    im=gm.make_image(dims, jacobian=jacob)
+
+    bpars=[cen1, cen2, be1, be2, bT, bF]
+    dpars=[cen1, cen2, de1, de2, dT, dF]
+
+    bgm0 = gmix.GMixModel(bpars, "dev")
+    dgm0 = gmix.GMixModel(dpars, "exp")
+
+    bgm=bgm0.convolve(psf)
+    dgm=dgm0.convolve(psf)
+
+    bim=bgm.make_image(dims, jacobian=jacob)
+    dim=dgm.make_image(dims, jacobian=jacob)
+
+    imcomb = bim + dim
+
+    images.compare_images(im, imcomb,
+                          label1='bde im',
+                          label2='bim + dim',
+                         width=1000,height=1000)
 
 def test_mcmc_psf(model="gauss",
                   g1=0.0,

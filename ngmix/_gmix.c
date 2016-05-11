@@ -673,6 +673,60 @@ _gmix_fill_coellip_bail:
     return status;
 }
 
+static int gmix_fill_bde(struct PyGMix_Gauss2D *self,
+                         npy_intp n_gauss,
+                         const double* pars,
+                         npy_intp n_pars)
+{
+
+    int status=0;//, n_gauss_expected=0;
+
+    double parsb[6]={0};
+    double parsd[6]={0};
+
+    parsb[0] = pars[0]; // cen1
+    parsb[1] = pars[1]; // cen2
+    parsb[2] = pars[2]; // e1
+    parsb[3] = pars[3]; // e2
+    parsb[4] = pars[4]; // T
+    parsb[5] = pars[8]; // flux
+
+    parsd[0] = pars[0]; // cen1
+    parsd[1] = pars[1]; // cen2
+    parsd[2] = pars[5]; // e1
+    parsd[3] = pars[6]; // e2
+    parsd[4] = pars[7]; // T
+    parsd[5] = pars[9]; // flux
+
+    status=gmix_fill_simple(&self[0], 10,
+                            parsb, 6,
+                            PyGMIX_GMIX_DEV, 
+                            PyGMix_fvals_dev,
+                            PyGMix_pvals_dev);
+
+    if (!status) {
+        goto _gmix_fill_bde_bail;
+    }
+
+    status=gmix_fill_simple(&self[10], 6,
+                            parsd, 6,
+                            PyGMIX_GMIX_EXP, 
+                            PyGMix_fvals_exp,
+                            PyGMix_pvals_exp);
+
+    if (!status) {
+        goto _gmix_fill_bde_bail;
+    }
+
+
+    status=1;
+
+_gmix_fill_bde_bail:
+    return status;
+}
+
+
+
 
 static PyObject * PyGMix_get_cm_Tfactor(PyObject* self, PyObject* args) {
     double
@@ -764,6 +818,11 @@ static int gmix_fill(struct PyGMix_Gauss2D *self,
         case PYGMIX_GMIX_GAUSSMOM:
             status=gmix_fill_gaussmom(self, n_gauss, pars, n_pars);
             break;
+
+        case PYGMIX_GMIX_BDE:
+            status=gmix_fill_bde(self, n_gauss, pars, n_pars);
+            break;
+
 
         default:
             PyErr_Format(GMixFatalError, 

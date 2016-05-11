@@ -1382,11 +1382,14 @@ GMIX_COELLIP=7
 GMIX_SERSIC=8
 GMIX_FRACDEV=9
 
+
 # Composite Model
 GMIX_CM=10
 
 # moments
 GMIX_GAUSSMOM=11
+
+GMIX_BDE=12
 
 _gmix_model_dict={'full':       GMIX_FULL,
                   GMIX_FULL:    GMIX_FULL,
@@ -1414,9 +1417,14 @@ _gmix_model_dict={'full':       GMIX_FULL,
 
                   'sersic':    GMIX_SERSIC,
                   GMIX_SERSIC: GMIX_SERSIC,
-                
+
                   'gaussmom': GMIX_GAUSSMOM,
-                  GMIX_GAUSSMOM: GMIX_GAUSSMOM}
+                  GMIX_GAUSSMOM: GMIX_GAUSSMOM,
+
+                  'bde': GMIX_BDE,
+                  GMIX_BDE: GMIX_BDE,
+
+                 }
 
 _gmix_string_dict={GMIX_FULL:'full',
                    'full':'full',
@@ -1444,9 +1452,13 @@ _gmix_string_dict={GMIX_FULL:'full',
 
                    GMIX_SERSIC:'sersic',
                    'sersic':'sersic',
-                   
+
                    GMIX_GAUSSMOM:'gaussmom',
                    'gaussmom':'gaussmom',
+
+                   GMIX_BDE:'bde',
+                   'bde':'bde',
+
                   }
 
 
@@ -1461,7 +1473,9 @@ _gmix_npars_dict={GMIX_GAUSS:6,
                   GMIX_BDC:8,
                   GMIX_BDF:7,
                   GMIX_SERSIC:7,
-                  GMIX_GAUSSMOM: 6}
+                  GMIX_GAUSSMOM: 6,
+                  GMIX_BDE: 10,
+                 }
 
 _gmix_ngauss_dict={GMIX_GAUSS:1,
                    'gauss':1,
@@ -1480,6 +1494,8 @@ _gmix_ngauss_dict={GMIX_GAUSS:1,
                    GMIX_BDF:16,
                    GMIX_SERSIC:4,
                    GMIX_GAUSSMOM: 1,
+
+                   GMIX_BDE: 16,
 
                    'em1':1,
                    'em2':2,
