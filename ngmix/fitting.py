@@ -2369,6 +2369,44 @@ class MCMCSimple(MCMCBase):
 
         return names
 
+class MCMCBDE(MCMCSimple):
+    def __init__(self,*args,**kw):
+        super(MCMCBDE,self).__init__(*args, **kw)
+
+        self._band_pars = numpy.zeros(self.npars)
+
+    def get_band_pars(self, pars_in, band):
+        """
+        Get linear pars for the specified band
+        """
+
+        pars=self._band_pars
+
+        if self.use_logpars:
+            _gmix.convert_simple_double_logpars_band(pars_in, pars, band)
+        else:
+            pars[0:8] = pars_in[0:8]
+            pars[8] = pars_in[8+band]
+            pars[9] = pars_in[8+self.nband + band]
+
+        return pars
+
+    def get_par_names(self, dolog=False):
+        names=[
+            'cen1','cen2',
+            'bg1','bg2', 'bT',
+            'dg1','dg2', 'dT',
+        ]
+        if self.nband == 1:
+            names += ['bF','dF']
+        else:
+            for band in xrange(self.nband):
+                names += ['bF_%s' % band]
+            for band in xrange(self.nband):
+                names += ['dF_%s' % band]
+
+        return names
+
 
 
 class MH(object):
