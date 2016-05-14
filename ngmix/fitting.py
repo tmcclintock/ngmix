@@ -673,6 +673,63 @@ class TemplateFluxFitter(FitterBase):
         """
         calculate the flux using zero-lag cross-correlation
         """
+        xcorr_sum=0.0
+        msq_sum=0.0
+
+        chi2=0.0
+
+        cen=self.cen
+        nobs=len(self.obs)
+
+        for ipass in [1,2]:
+            for iobs in xrange(nobs):
+                obs=self.obs[iobs]
+                gm = self.gmix_list[iobs]
+
+                im=obs.image
+                wt=obs.weight
+                j=obs.jacobian
+
+                if ipass==1:
+                    if self.normalize_psf:
+                        gm.set_psum(1.0)
+                        psf_norm = 1.0
+                    else:
+                        psf_norm = gm.get_psum()
+                    model=gm.make_image(im.shape, jacobian=j)
+                    xcorr_sum += (model*im*wt).sum()
+                    msq_sum += (model*model*wt).sum()
+                else:
+                    gm.set_psum(flux*psf_norm)
+                    model=gm.make_image(im.shape, jacobian=j)
+                    chi2 +=( (model-im)**2 *wt ).sum()
+            if ipass==1:
+                flux = xcorr_sum/msq_sum
+
+        dof=self.get_dof()
+        chi2per=9999.0
+        if dof > 0:
+            chi2per=chi2/dof
+
+        flags=0
+        arg=chi2/msq_sum/(self.totpix-1)
+        if arg >= 0.0:
+            flux_err = sqrt(arg)
+        else:
+            flags=BAD_VAR
+            flux_err=9999.0
+
+        self._result={'model':self.model_name,
+                      'flags':flags,
+                      'chi2per':chi2per,
+                      'dof':dof,
+                      'flux':flux,
+                      'flux_err':flux_err}
+
+    def gosave(self):
+        """
+        calculate the flux using zero-lag cross-correlation
+        """
 
         flags=0
 
