@@ -49,10 +49,14 @@ def prep_image(im0):
 
     # need no zero pixels and sky value
     im_min = im.min()
-    im_max = im.max()
-    sky=0.001*(im_max-im_min)
 
-    im += (sky-im_min)
+    if im_min > 0:
+        return im, im_min
+    else:
+        im_max = im.max()
+        sky=0.001*(im_max-im_min)
+
+        im += (sky-im_min)
 
     return im, sky
 
@@ -156,9 +160,9 @@ class GMixEM(object):
                     'numiter':numiter,
                     'fdiff':fdiff}
 
-        except GMixRangeError:
+        except GMixRangeError as err:
             # the iteration reached an invalid gaussian
-            result={'flags':EM_RANGE_ERROR}
+            result={'flags':EM_RANGE_ERROR,'errstr':str(err)}
 
         self._result = result
 
@@ -233,7 +237,7 @@ _sums_dtype=[('gi','f8'),
              ('tuvsum','f8'),
              ('tv2sum','f8'),
              # sums over all pixels
-             ('pnew','f8'),
+             ('qsum','f8'),
              ('rowsum','f8'),
              ('colsum','f8'),
              ('u2sum','f8'),
