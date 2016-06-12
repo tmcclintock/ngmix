@@ -66,18 +66,18 @@ struct __attribute__((__packed__)) PyGMix_EM_Sums {
     double gi;
 
     // scratch on a given pixel
-    double row;
-    double col;
+    double v;
+    double u;
     double u2;
-    double uv;
+    double vu;
     double v2;
 
     // sums over all pixels
     double qsum; // sum count*q
-    double rowsum;
-    double colsum;
+    double vsum;
+    double usum;
     double u2sum;
-    double uvsum;
+    double vusum;
     double v2sum;
 };
 

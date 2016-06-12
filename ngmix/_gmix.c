@@ -2694,14 +2694,14 @@ static void em_sums_print(const struct PyGMix_EM_Sums *sums, npy_intp n_gauss)
                 sum->trowsum,
                 sum->tcolsum,
                 sum->tu2sum,
-                sum->tuvsum,
+                sum->tvusum,
                 sum->tv2sum,
 
                 sum->pnew,
                 sum->rowsum,
                 sum->colsum,
                 sum->u2sum,
-                sum->uvsum,
+                sum->vusum,
                 sum->v2sum);
 
     }
@@ -2728,13 +2728,29 @@ int em_set_gmix_from_sums(struct PyGMix_Gauss2D *gmix,
 
         double qsuminv=1.0/sum->qsum;
 
+        double vmean= sum->vsum*qsuminv;
+        double umean= sum->usum*qsuminv;
+
+        double v2mean = sums->v2sum*qsuminv;
+        double u2mean = sums->u2sum*qsuminv;
+        double vumean = sums->vusum*qsuminv;
+
+        // covariance matrix update is based on the new means
+        double ivv = v2mean - vmean*vmean;
+        double iuu = u2mean - umean*umean;
+        double ivu = vumean - vmean*umean;
+
+        //double ivv = v2mean - gauss->row*gauss->row;
+        //double iuu = u2mean - gauss->col*gauss->col;
+        //double ivu = vumean - gauss->row*gauss->col;
+
         status=gauss2d_set(gauss,
                            sum->qsum/counts,
-                           sum->rowsum*qsuminv,
-                           sum->colsum*qsuminv,
-                           sum->v2sum*qsuminv,
-                           sum->uvsum*qsuminv,
-                           sum->u2sum*qsuminv);
+                           vmean,
+                           umean,
+                           ivv,
+                           ivu,
+                           iuu);
 
         status=gauss2d_set_norm(gauss);
 
@@ -2765,10 +2781,10 @@ int em_set_gmix_from_sums_old(struct PyGMix_Gauss2D *gmix,
 
         status=gauss2d_set(gauss,
                            p,
-                           sum->rowsum*pinv,
-                           sum->colsum*pinv,
+                           sum->vsum*pinv,
+                           sum->usum*pinv,
                            sum->v2sum*pinv,
-                           sum->uvsum*pinv,
+                           sum->vusum*pinv,
                            sum->u2sum*pinv);
 
         status=gauss2d_set_norm(gauss);
@@ -2825,9 +2841,13 @@ static int em_run(PyObject* image_obj,
     // area
     double alpha_sky=sky/counts;
 
+    double loglike_last=9.999e9;
+    double loglike=0;
+
     (*numiter)=0;
     while ( (*numiter) < maxiter) {
         double qsky=0, skysum=0;
+        loglike=0;
         em_clear_sums(sums, n_gauss);
 
         for (row=0; row<n_row; row++) {
@@ -2851,26 +2871,29 @@ static int em_run(PyObject* image_obj,
                     double udiff = u-gauss->col;
 
                     double v2 = vdiff*vdiff;
-                    double uv = udiff*vdiff;
+                    double vu = vdiff*udiff;
                     double u2 = udiff*udiff;
 
                     double chi2=
-                        gauss->dcc*v2 + gauss->drr*u2 - 2.0*gauss->drc*uv;
+                        gauss->dcc*v2 + gauss->drr*u2 - 2.0*gauss->drc*vu;
 
                     sum->gi = gauss->pnorm*exp( -0.5*chi2 );
+
+                    loglike += log(sum->gi);
+
                     gtot += sum->gi;
 
-                    sum->row = v;
-                    sum->col = u;
-                    sum->v2  = v2;
-                    sum->uv  = uv;
-                    sum->u2  = u2;
+                    sum->v = v;
+                    sum->u = u;
+                    sum->v2  = v*v;
+                    sum->vu  = u*v;
+                    sum->u2  = u*u;
 
                 } // gaussians
 
-                skysum += I/counts - gtot;
-
                 gtot += alpha_sky;
+
+                skysum += alpha_sky*I/counts/gtot;
 
                 if (gtot > 0) {
 
@@ -2884,21 +2907,13 @@ static int em_run(PyObject* image_obj,
                         sum->qsum += I_times_q;
 
                         // need to divide by sum(I*q) = qsum later
-                        sum->rowsum += I_times_q*sum->row;
-                        sum->colsum += I_times_q*sum->col;
-                        sum->u2sum  += I_times_q*sum->u2;
-                        sum->uvsum  += I_times_q*sum->uv;
-                        sum->v2sum  += I_times_q*sum->v2;
+                        sum->vsum  += I_times_q*sum->v;
+                        sum->usum  += I_times_q*sum->u;
+                        sum->v2sum += I_times_q*sum->v2;
+                        sum->vusum += I_times_q*sum->vu;
+                        sum->u2sum += I_times_q*sum->u2;
 
                     }
-
-
-                    //qsky = alpha_sky/gtot;
-
-                    // matches old code
-                    //skysum += I*qsky/counts;
-
-                    //skysum += qsky;
 
                 }
 
@@ -2921,27 +2936,35 @@ static int em_run(PyObject* image_obj,
             break;
         }
 
-        // matches old code
         alpha_sky = skysum/n_points;
 
-        (*frac_diff) = fabs((T-T_last)/T);
-        e1diff=fabs(e1-e1_last);
-        e2diff=fabs(e2-e2_last);
+        if (*numiter != 0) {
+            (*frac_diff) = fabs((T-T_last)/T);
+            e1diff=fabs(e1-e1_last);
+            e2diff=fabs(e2-e2_last);
 
-        /*
-        if ( (*frac_diff) < tol) {
-            break;
-        }
-        */
-        if ( 
-                  (*frac_diff < tol)
-               && (e1diff < tol)
-               && (e2diff < tol)
-           )
-        {
-            break;
+            if ( fabs( (loglike-loglike_last)/n_points) < tol) {
+                break;
+            }
+
+            /*
+            if ( (*frac_diff) < tol) {
+                break;
+            }
+            */
+            /*
+            if ( 
+                      (*frac_diff < tol)
+                   && (e1diff < tol)
+                   && (e2diff < tol)
+               )
+            {
+                break;
+            }
+            */
         }
 
+        loglike_last=loglike;
 
         T_last = T;
         e1_last = e1;
@@ -3016,12 +3039,12 @@ static int em_run_old(PyObject* image_obj,
 
                     double u2 = udiff*udiff;
                     double v2 = vdiff*vdiff;
-                    double uv = udiff*vdiff;
+                    double vu = vdiff*udiff;
 
                     //double chi2=
-                    //    gauss->dcc*u2 + gauss->drr*v2 - 2.0*gauss->drc*uv;
+                    //    gauss->dcc*u2 + gauss->drr*v2 - 2.0*gauss->drc*vu;
                     double chi2=
-                        gauss->dcc*v2 + gauss->drr*u2 - 2.0*gauss->drc*uv;
+                        gauss->dcc*v2 + gauss->drr*u2 - 2.0*gauss->drc*vu;
 
                     if (chi2 < PYGMIX_MAX_CHI2 && chi2 >= 0.0) {
                         sum->gi = gauss->pnorm*expd( -0.5*chi2 );
@@ -3029,15 +3052,18 @@ static int em_run_old(PyObject* image_obj,
                         sum->gi = 0.0;
                     }
                     gtot += sum->gi;
-                    sum->row = v*sum->gi;
-                    sum->col = u*sum->gi;
+                    sum->v   = v*sum->gi;
+                    sum->u   = u*sum->gi;
                     sum->v2  = v2*sum->gi;
-                    sum->uv  = uv*sum->gi;
+                    sum->vu  = vu*sum->gi;
                     sum->u2  = u2*sum->gi;
 
                 } // gaussians
 
                 gtot += nsky;
+
+                // sky/counts * pixelval/counts / gtot
+                skysum += nsky*imnorm/gtot;
 
                 if (gtot == 0) {
                     PyErr_Format(GMixRangeError, "em gtot = 0");
@@ -3055,16 +3081,14 @@ static int em_run_old(PyObject* image_obj,
                     sum->qsum += wtau;
 
                     // row*gi/gtot*imnorm;
-                    sum->rowsum += sum->row*igrat;
-                    sum->colsum += sum->col*igrat;
-                    sum->u2sum  += sum->u2*igrat;
-                    sum->uvsum  += sum->uv*igrat;
-                    sum->v2sum  += sum->v2*igrat;
+                    sum->vsum  += sum->v*igrat;
+                    sum->usum  += sum->u*igrat;
+                    sum->u2sum += sum->u2*igrat;
+                    sum->vusum += sum->vu*igrat;
+                    sum->v2sum += sum->v2*igrat;
 
                 }
 
-                // sky/counts * pixelval/counts / gtot
-                skysum += nsky*imnorm/gtot;
                 u += jacob->dudcol;
                 v += jacob->dvdcol;
             } //cols
@@ -3157,8 +3181,8 @@ static PyObject * PyGMix_em_run(PyObject* self, PyObject* args) {
     jacob=(struct PyGMix_Jacobian* ) PyArray_DATA(jacob_obj);
     sums=(struct PyGMix_EM_Sums* )  PyArray_DATA(sums_obj);
 
-    //status=em_run(image_obj,
-    status=em_run_old(image_obj,
+    status=em_run(image_obj,
+    //status=em_run_old(image_obj,
                   sky,
                   counts,
                   jacob,

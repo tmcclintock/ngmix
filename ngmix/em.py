@@ -228,20 +228,22 @@ class ApproxEMSimple(object):
 
     # alias
     go=run_em
-    
+
 _sums_dtype=[('gi','f8'),
+
              # scratch on a given pixel
-             ('trowsum','f8'),
-             ('tcolsum','f8'),
-             ('tu2sum','f8'),
-             ('tuvsum','f8'),
-             ('tv2sum','f8'),
+             ('v','f8'),
+             ('u','f8'),
+             ('u2','f8'),
+             ('vu','f8'),
+             ('v2','f8'),
+
              # sums over all pixels
              ('qsum','f8'),
-             ('rowsum','f8'),
-             ('colsum','f8'),
+             ('vsum','f8'),
+             ('usum','f8'),
              ('u2sum','f8'),
-             ('uvsum','f8'),
+             ('vusum','f8'),
              ('v2sum','f8')]
 
 
@@ -255,13 +257,13 @@ def _clear_sums(sums):
         sums[i].trowsum=0
         sums[i].tcolsum=0
         sums[i].tu2sum=0
-        sums[i].tuvsum=0
+        sums[i].tvusum=0
         sums[i].tv2sum=0
         sums[i].pnew=0
         sums[i].rowsum=0
         sums[i].colsum=0
         sums[i].u2sum=0
-        sums[i].uvsum=0
+        sums[i].vusum=0
         sums[i].v2sum=0
 
 # have to send whole array
@@ -300,7 +302,7 @@ def _set_gmix_from_sums(gmix, sums):
                      sums[i].rowsum/p,
                      sums[i].colsum/p,
                      sums[i].u2sum/p,
-                     sums[i].uvsum/p,
+                     sums[i].vusum/p,
                      sums[i].v2sum/p)
 
 @autojit
@@ -392,7 +394,7 @@ def _run_em(image, gmix, sums, j, sky, maxiter, tol):
                     sums[i].trowsum = u*sums[i].gi
                     sums[i].tcolsum = v*sums[i].gi
                     sums[i].tu2sum  = u2*sums[i].gi
-                    sums[i].tuvsum  = uv*sums[i].gi
+                    sums[i].tvusum  = uv*sums[i].gi
                     sums[i].tv2sum  = v2*sums[i].gi
 
                 gtot += nsky
@@ -409,7 +411,7 @@ def _run_em(image, gmix, sums, j, sky, maxiter, tol):
                     sums[i].rowsum += sums[i].trowsum*igrat
                     sums[i].colsum += sums[i].tcolsum*igrat
                     sums[i].u2sum  += sums[i].tu2sum*igrat
-                    sums[i].uvsum  += sums[i].tuvsum*igrat
+                    sums[i].vusum  += sums[i].tvusum*igrat
                     sums[i].v2sum  += sums[i].tv2sum*igrat
 
                 skysum += nsky*imnorm/gtot
