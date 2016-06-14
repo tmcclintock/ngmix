@@ -229,22 +229,25 @@ class ApproxEMSimple(object):
     # alias
     go=run_em
 
-_sums_dtype=[('gi','f8'),
+_sums_dtype=numpy.dtype(
+    [('gi','f8'),
 
-             # scratch on a given pixel
-             ('v','f8'),
-             ('u','f8'),
-             ('u2','f8'),
-             ('vu','f8'),
-             ('v2','f8'),
+     # scratch on a given pixel
+     ('v','f8'),
+     ('u','f8'),
+     ('u2','f8'),
+     ('vu','f8'),
+     ('v2','f8'),
 
-             # sums over all pixels
-             ('qsum','f8'),
-             ('vsum','f8'),
-             ('usum','f8'),
-             ('u2sum','f8'),
-             ('vusum','f8'),
-             ('v2sum','f8')]
+     # sums over all pixels
+     ('qsum','f8'),
+     ('vsum','f8'),
+     ('usum','f8'),
+     ('u2sum','f8'),
+     ('vusum','f8'),
+     ('v2sum','f8')],
+    align=True,
+)
 
 
 

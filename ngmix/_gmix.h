@@ -62,7 +62,8 @@ struct __attribute__((__packed__)) PyGMix_Jacobian {
     double sdet;
 };
 
-struct __attribute__((__packed__)) PyGMix_EM_Sums {
+//struct __attribute__((__packed__)) PyGMix_EM_Sums {
+struct PyGMix_EM_Sums {
     double gi;
 
     // scratch on a given pixel

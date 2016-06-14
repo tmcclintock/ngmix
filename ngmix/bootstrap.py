@@ -2446,6 +2446,8 @@ class EMRunner(object):
             return self._get_em_guess_2gauss()
         elif self.ngauss==3:
             return self._get_em_guess_3gauss()
+        elif self.ngauss==4:
+            return self._get_em_guess_4gauss()
         else:
             raise ValueError("bad ngauss: %d" % self.ngauss)
 
@@ -2511,6 +2513,45 @@ class EMRunner(object):
 
 
         return GMix(pars=pars)
+
+    def _get_em_guess_4gauss(self):
+
+        sigma2 = self.sigma_guess**2
+
+        pars=array( [_em4_pguess[0]*(1.0+0.1*srandu()),
+                     0.1*srandu(),
+                     0.1*srandu(),
+                     _em4_fguess[0]*sigma2*(1.0 + 0.1*srandu()),
+                     0.01*srandu(),
+                     _em4_fguess[0]*sigma2*(1.0 + 0.1*srandu()),
+
+                     _em4_pguess[1]*(1.0+0.1*srandu()),
+                     0.1*srandu(),
+                     0.1*srandu(),
+                     _em4_fguess[1]*sigma2*(1.0 + 0.1*srandu()),
+                     0.01*srandu(),
+                     _em4_fguess[1]*sigma2*(1.0 + 0.1*srandu()),
+
+                     _em4_pguess[2]*(1.0+0.1*srandu()),
+                     0.1*srandu(),
+                     0.1*srandu(),
+                     _em4_fguess[2]*sigma2*(1.0 + 0.1*srandu()),
+                     0.01*srandu(),
+                     _em4_fguess[2]*sigma2*(1.0 + 0.1*srandu()),
+
+                     _em4_pguess[3]*(1.0+0.1*srandu()),
+                     0.1*srandu(),
+                     0.1*srandu(),
+                     _em4_fguess[3]*sigma2*(1.0 + 0.1*srandu()),
+                     0.01*srandu(),
+                     _em4_fguess[3]*sigma2*(1.0 + 0.1*srandu())]
+
+
+                  )
+
+
+        return GMix(pars=pars)
+
 
 class PSFRunnerCoellip(object):
     """
@@ -3071,10 +3112,14 @@ _em2_pguess =array([0.596510042804182,0.4034898268889178])
 
 _em3_pguess = array([0.596510042804182,0.4034898268889178,1.303069003078001e-07])
 _em3_fguess = array([0.5793612389470884,1.621860687127999,7.019347162356363])
+
 #_em3_pguess = array([0.7189864,0.2347828,0.04623086])
 #_em3_fguess = array([0.4431912,1.354587,8.274546])
 #_em3_pguess = array([0.60,0.36,0.04])
 #_em3_fguess = array([0.58,1.62,3.0])
+
+_em4_pguess = array([0.6,0.3,0.095,0.005])
+_em4_fguess = array([0.5793612389470884,1.0, 3.0, 10.0])
 
 def test_boot(model,**keys):
     from .test import make_test_observations
