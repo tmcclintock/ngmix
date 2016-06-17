@@ -2819,7 +2819,8 @@ static int em_run(PyObject* image_obj,
                   double tol,
                   long maxiter,
                   long *numiter,
-                  double *frac_diff)
+                  double *frac_diff,
+                  double *loglike)
 {
     int status=0;
     npy_intp row=0, col=0, i=0;
@@ -2845,12 +2846,11 @@ static int em_run(PyObject* image_obj,
     double alpha_sky=sky/counts;
 
     double loglike_last=9.999e9;
-    double loglike=0;
 
     (*numiter)=0;
     while ( (*numiter) < maxiter) {
         double qsky=0, skysum=0;
-        loglike=0;
+        *loglike=0;
         em_clear_sums(sums, n_gauss);
 
         for (row=0; row<n_row; row++) {
@@ -2882,13 +2882,13 @@ static int em_run(PyObject* image_obj,
 
                     if (chi2 < PYGMIX_MAX_CHI2 && chi2 >= 0.0) {
                         sum->gi = gauss->pnorm*expd( -0.5*chi2 );
+                        *loglike += log(sum->gi);
                     } else {
                         sum->gi = 0.0;
                     }
 
                     //sum->gi = gauss->pnorm*exp( -0.5*chi2 );
 
-                    loglike += log(sum->gi);
 
                     gtot += sum->gi;
 
@@ -2953,7 +2953,7 @@ static int em_run(PyObject* image_obj,
             e2diff=fabs(e2-e2_last);
 
             /*
-            if ( fabs( (loglike-loglike_last)/n_points) < tol) {
+            if ( fabs( (*loglike-loglike_last)/n_points) < tol) {
                 break;
             }
             */
@@ -2975,7 +2975,7 @@ static int em_run(PyObject* image_obj,
 
         }
 
-        loglike_last=loglike;
+        loglike_last=*loglike;
 
         T_last = T;
         e1_last = e1;
@@ -3167,7 +3167,7 @@ static PyObject * PyGMix_em_run(PyObject* self, PyObject* args) {
     struct PyGMix_Jacobian *jacob=NULL;
     struct PyGMix_EM_Sums* sums=NULL;
     long numiter=0;
-    double frac_diff=0;
+    double frac_diff=0, loglike=0;
     int status=0;
 
 
@@ -3193,7 +3193,6 @@ static PyObject * PyGMix_em_run(PyObject* self, PyObject* args) {
     sums=(struct PyGMix_EM_Sums* )  PyArray_DATA(sums_obj);
 
     status=em_run(image_obj,
-    //status=em_run_old(image_obj,
                   sky,
                   counts,
                   jacob,
@@ -3203,16 +3202,15 @@ static PyObject * PyGMix_em_run(PyObject* self, PyObject* args) {
                   tol,
                   maxiter,
                   &numiter,
-                  &frac_diff);
+                  &frac_diff,
+                  &loglike);
+
 
     if (!status) {
         // raise an exception
         return NULL;
     } else {
-        PyObject* retval=PyTuple_New(2);
-        PyTuple_SetItem(retval,0,PyLong_FromLong(numiter));
-        PyTuple_SetItem(retval,1,PyFloat_FromDouble(frac_diff));
-        return retval;
+        return Py_BuildValue("idd", numiter, frac_diff, loglike);
     }
 }
 

@@ -139,14 +139,16 @@ class GMixEM(object):
         # we handle below
         flags=0
         try:
-            numiter, fdiff = _gmix.em_run(gmtmp._data,
-                                          self._obs.image,
-                                          self._obs.jacobian._data,
-                                          self._sums,
-                                          self._sky_guess,
-                                          self._counts,
-                                          self._tol,
-                                          self._maxiter)
+            numiter, fdiff, loglike = _gmix.em_run(
+                gmtmp._data,
+                self._obs.image,
+                self._obs.jacobian._data,
+                self._sums,
+                self._sky_guess,
+                self._counts,
+                self._tol,
+                self._maxiter,
+            )
 
             # we have mutated the _data elements, we want to make
             # sure the pars are propagated.  Make a new full gm
@@ -156,9 +158,12 @@ class GMixEM(object):
             if numiter >= maxiter:
                 flags = EM_MAXITER
 
-            result={'flags':flags,
-                    'numiter':numiter,
-                    'fdiff':fdiff}
+            result={
+                'flags':flags,
+                'numiter':numiter,
+                'fdiff':fdiff,
+                'loglike':loglike,
+            }
 
         except GMixRangeError as err:
             # the iteration reached an invalid gaussian
