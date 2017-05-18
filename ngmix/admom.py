@@ -39,10 +39,11 @@ class Admom(object):
 
     def __init__(self, obs, maxiter=200, shiftmax=5.0,
                  etol=1.0e-5, Ttol=0.001,
+                 fixcen=False,
                  rng=None,
                  deconv=False):
         self._set_obs(obs, deconv)
-        self._set_conf(maxiter, shiftmax, etol, Ttol)
+        self._set_conf(maxiter, shiftmax, etol, Ttol, fixcen)
 
         self.rng=rng
 
@@ -195,7 +196,7 @@ class Admom(object):
         self._jlist=jlist
 
 
-    def _set_conf(self, maxiter, shiftmax, etol, Ttol):
+    def _set_conf(self, maxiter, shiftmax, etol, Ttol, fixcen):
         dt=numpy.dtype(_admom_conf_dtype, align=True)
         conf=numpy.zeros(1, dtype=dt)
 
@@ -203,6 +204,15 @@ class Admom(object):
         conf['shiftmax']=shiftmax
         conf['etol']=etol
         conf['Ttol']=Ttol
+
+        self.fixcen=fixcen
+        if fixcen:
+            #print("fixing center")
+            #stop
+            conf['fixcen'] = 1
+        else:
+            pass
+            #print("not fixing center")
 
         self.conf=conf
 
@@ -223,7 +233,10 @@ class Admom(object):
 
         scale=self._jlist[0]['sdet'][0]
         pars=numpy.zeros(6)
-        pars[0:0+2] = rng.uniform(low=-0.5*scale, high=0.5*scale, size=2)
+
+        if not self.fixcen:
+            pars[0:0+2] = rng.uniform(low=-0.5*scale, high=0.5*scale, size=2)
+
         pars[2:2+2] = rng.uniform(low=-0.3, high=0.3, size=2)
         pars[4]     = Tguess*(1.0 + rng.uniform(low=-0.1, high=0.1))
         pars[5]     = 1.0
@@ -371,6 +384,7 @@ _admom_conf_dtype=[
     ('shiftmax','f8'),
     ('etol','f8'),
     ('Ttol','f8'),
+    ('fixcen','f4'),
 ]
 _admom_result_dtype=[
     ('flags','i4'),

@@ -4009,6 +4009,7 @@ struct Admom {
     double shiftmax;
     double etol;
     double Ttol;
+    int fixcen;
 };
 
 /*
@@ -4359,23 +4360,25 @@ static void admom(
         }
 
         // First the center
-        admom_clear_result(res);
-        admom_censums(self, image, jacob, &wt, res);
-        if (res->sums[5] <= 0.0) {
-            res->flags |= ADMOM_FAINT;
-            goto admom_bail;
-        }
+        if (! self->fixcen ) {
+            admom_clear_result(res);
+            admom_censums(self, image, jacob, &wt, res);
+            if (res->sums[5] <= 0.0) {
+                res->flags |= ADMOM_FAINT;
+                goto admom_bail;
+            }
 
-        wt.row = res->sums[0]/res->sums[5];
-        wt.col = res->sums[1]/res->sums[5];
+            wt.row = res->sums[0]/res->sums[5];
+            wt.col = res->sums[1]/res->sums[5];
 
-        // bail if the center shifted too far
-        if ( ( fabs(wt.row-roworig) > self->shiftmax)
-             ||
-             ( fabs(wt.col-colorig) > self->shiftmax)
-             ) {
-            res->flags |= ADMOM_SHIFT;
-            goto admom_bail;
+            // bail if the center shifted too far
+            if ( ( fabs(wt.row-roworig) > self->shiftmax)
+                 ||
+                 ( fabs(wt.col-colorig) > self->shiftmax)
+               ) {
+                res->flags |= ADMOM_SHIFT;
+                goto admom_bail;
+            }
         }
 
         // now the rest of the moment sums
