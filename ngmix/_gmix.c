@@ -4010,6 +4010,7 @@ struct Admom {
     double etol;
     double Ttol;
     int fixcen;
+    int round;
 };
 
 /*
@@ -4247,7 +4248,7 @@ static void admom_momsums(
 
 */
 
-static int take_adaptive_step(
+static int deweight_moments(
           double Wrr, double Wrc, double Wcc,
           double Irr, double Irc, double Icc,
           double *NewIrr, double *NewIrc, double *NewIcc)
@@ -4302,18 +4303,46 @@ adaptive_step_bail:
 
 
 
-static int take_adaptive_step_wt(
+static int deweight_moments_wt(
           struct PyGMix_Gauss2D *wt,
           double Irr, double Irc, double Icc)
 {
 
     int flags=0;
-    flags=take_adaptive_step(
+    flags=deweight_moments(
         wt->irr, wt->irc, wt->icc,
         Irr, Irc, Icc,
         &wt->irr, &wt->irc, &wt->icc
     );
 
+    wt->det = wt->irr*wt->icc - wt->irc*wt->irc;
+
+    return flags;
+}
+
+/*
+   make the weight round
+*/
+static int deweight_moments_wt_round(
+          struct PyGMix_Gauss2D *wt,
+          double Irr, double Irc, double Icc)
+{
+
+    int flags=0;
+
+    double newIrr=0, newIrc=0, newIcc=0, T=0;
+
+    flags=deweight_moments(
+        wt->irr, wt->irc, wt->icc,
+        Irr, Irc, Icc,
+        &newIrr, &newIrc, &newIcc
+    );
+
+    // now force round
+    T = newIrr + newIcc;
+    wt->irr = 0.5*T;
+    wt->icc = 0.5*T;
+    wt->irc = 0.0;
     wt->det = wt->irr*wt->icc - wt->irc*wt->irc;
 
     return flags;
@@ -4415,20 +4444,34 @@ static void admom(
                 ( fabs(T/Told-1.) < self->Ttol)
            )  {
 
-            res->pars[0] = wt.row;
-            res->pars[1] = wt.col;
-            res->pars[2] = wt.icc - wt.irr;
-            res->pars[3] = 2.0*wt.irc;
-            res->pars[4] = wt.icc + wt.irr;
-            //res->pars[5] = res->sums[5]/res->wsum;
-            res->pars[5] = 1.0;
+            if (self->round) {
+                res->pars[0] = wt.row;
+                res->pars[1] = wt.col;
+                res->pars[2] = M1;
+                res->pars[3] = M2;
+                res->pars[4] = T;
+                //res->pars[5] = res->sums[5]/res->wsum;
+                res->pars[5] = 1.0;
+            } else {
+                res->pars[0] = wt.row;
+                res->pars[1] = wt.col;
+                res->pars[2] = wt.icc - wt.irr;
+                res->pars[3] = 2.0*wt.irc;
+                res->pars[4] = wt.icc + wt.irr;
+                //res->pars[5] = res->sums[5]/res->wsum;
+                res->pars[5] = 1.0;
+            }
 
             break;
 
         } else {
             // take the adaptive step
 
-            res->flags |= take_adaptive_step_wt(&wt, Irr, Irc, Icc);
+            if (self->round) {
+                res->flags |= deweight_moments_wt_round(&wt, Irr, Irc, Icc);
+            } else {
+                res->flags |= deweight_moments_wt(&wt, Irr, Irc, Icc);
+            }
             if (res->flags != 0) {
                 goto admom_bail;
             }
@@ -4482,7 +4525,7 @@ static inline void admom_deconvolve(
 
 // only check the determinant is exactly zero
 // these are all sums, not divided by flux
-static int take_adaptive_step_nocheck(
+static int deweight_moments_nocheck(
           double Wrr, double Wrc, double Wcc,
           double Irr, double Irc, double Icc,
           double *NewIrr, double *NewIrc, double *NewIcc)
@@ -4545,7 +4588,7 @@ admom_get_deconvolved_moments(
 {
     int flags=0;
 
-    flags=take_adaptive_step(
+    flags=deweight_moments(
         wt->irr, wt->irc, wt->icc,
         Irr, Irc, Icc,
         Irr0, Irc0, Icc0
@@ -4574,7 +4617,7 @@ admom_get_deconvolved_moments_nocheck(
     Iccsum = 0.5*(Tsum + M1sum);
     Ircsum = 0.5*M2sum;
 
-    flags=take_adaptive_step_nocheck(
+    flags=deweight_moments_nocheck(
         wt->irr*Fsum, wt->irc*Fsum, wt->icc*Fsum,
         Irrsum, Ircsum, Iccsum,
         Irrsum0, Ircsum0, Iccsum0
@@ -4930,7 +4973,7 @@ static void admom_multi(
             Icc = 0.5*(T + M1);
             Irc = 0.5*M2;
 
-            res->flags |= take_adaptive_step_wt(&wt, Irr, Irc, Icc);
+            res->flags |= deweight_moments_wt(&wt, Irr, Irc, Icc);
             if (res->flags != 0) {
                 goto admom_multi_bail;
             }

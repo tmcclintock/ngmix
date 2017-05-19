@@ -40,10 +40,12 @@ class Admom(object):
     def __init__(self, obs, maxiter=200, shiftmax=5.0,
                  etol=1.0e-5, Ttol=0.001,
                  fixcen=False,
+                 round=False,
                  rng=None,
-                 deconv=False):
+                 deconv=False,
+                 **kw):
         self._set_obs(obs, deconv)
-        self._set_conf(maxiter, shiftmax, etol, Ttol, fixcen)
+        self._set_conf(maxiter, shiftmax, etol, Ttol, fixcen, round)
 
         self.rng=rng
 
@@ -196,7 +198,7 @@ class Admom(object):
         self._jlist=jlist
 
 
-    def _set_conf(self, maxiter, shiftmax, etol, Ttol, fixcen):
+    def _set_conf(self, maxiter, shiftmax, etol, Ttol, fixcen, round):
         dt=numpy.dtype(_admom_conf_dtype, align=True)
         conf=numpy.zeros(1, dtype=dt)
 
@@ -213,6 +215,15 @@ class Admom(object):
         else:
             pass
             #print("not fixing center")
+
+        self.round=round
+        if round:
+            #print("doing round")
+            conf['round'] = 1
+        else:
+            #print("not doing round")
+            pass
+
 
         self.conf=conf
 
@@ -237,7 +248,9 @@ class Admom(object):
         if not self.fixcen:
             pars[0:0+2] = rng.uniform(low=-0.5*scale, high=0.5*scale, size=2)
 
-        pars[2:2+2] = rng.uniform(low=-0.3, high=0.3, size=2)
+        if not self.round:
+            pars[2:2+2] = rng.uniform(low=-0.3, high=0.3, size=2)
+
         pars[4]     = Tguess*(1.0 + rng.uniform(low=-0.1, high=0.1))
         pars[5]     = 1.0
 
@@ -385,6 +398,7 @@ _admom_conf_dtype=[
     ('etol','f8'),
     ('Ttol','f8'),
     ('fixcen','f4'),
+    ('round','f4'),
 ]
 _admom_result_dtype=[
     ('flags','i4'),
