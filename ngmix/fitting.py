@@ -689,7 +689,6 @@ class TemplateFluxFitter(FitterBase):
         """
         calculate the flux using zero-lag cross-correlation
         """
-
         flags=0
 
         xcorr_sum=0.0
@@ -1635,7 +1634,7 @@ class LMSimple(FitterBase):
     """
     def __init__(self, obs, model, **keys):
         super(LMSimple,self).__init__(obs, model, **keys)
-
+        print("in LMSimple constructor")
         # this is a dict
         # can contain maxfev, ftol (tol in sum of squares)
         # xtol (tol in solution), etc
